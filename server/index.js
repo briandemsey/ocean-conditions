@@ -81,7 +81,7 @@ app.get('/api/conditions/:spotId', async (req, res) => {
         lat: spot.lat,
         lng: spot.lng,
         params:
-          'waveHeight,wavePeriod,waveDirection,swellHeight,swellPeriod,swellDirection,secondarySwellHeight,secondarySwellPeriod,windSpeed,windDirection,windGust,airTemperature,waterTemperature',
+          'waveHeight,wavePeriod,waveDirection,swellHeight,swellPeriod,swellDirection,secondarySwellHeight,secondarySwellPeriod,windSpeed,windDirection,gust,airTemperature,waterTemperature',
         source: 'sg,noaa,dwd,meteo,meto',
         start: now,
         end: end,
@@ -125,7 +125,7 @@ app.get('/api/forecast/:spotId', async (req, res) => {
         lat: spot.lat,
         lng: spot.lng,
         params:
-          'waveHeight,wavePeriod,waveDirection,swellHeight,swellPeriod,swellDirection,windSpeed,windDirection,windGust,airTemperature,waterTemperature',
+          'waveHeight,wavePeriod,waveDirection,swellHeight,swellPeriod,swellDirection,windSpeed,windDirection,gust,airTemperature,waterTemperature',
         source: 'sg,noaa',
         start,
         end,

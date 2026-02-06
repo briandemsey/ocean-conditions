@@ -72,7 +72,7 @@ export default function SpotOverview() {
     swellDir = h.swellDirection?.sg ?? h.swellDirection?.noaa
     windSpeed = h.windSpeed?.sg ?? h.windSpeed?.noaa
     windDir = h.windDirection?.sg ?? h.windDirection?.noaa
-    windGust = h.windGust?.sg ?? h.windGust?.noaa
+    windGust = h.gust?.sg ?? h.gust?.noaa
     waterTemp = h.waterTemperature?.sg ?? h.waterTemperature?.noaa
     airTemp = h.airTemperature?.sg ?? h.airTemperature?.noaa
     source = 'StormGlass'
