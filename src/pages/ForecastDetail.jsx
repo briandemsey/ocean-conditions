@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import {
-  BarChart, Bar, LineChart, Line, AreaChart, Area,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine
+  BarChart, Bar, Cell, LineChart, Line, AreaChart, Area,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts'
 import { calculateRating, metersToFeet, msToKnots, getRatingByLevel } from '../utils/ratings'
 import { formatDateShort, degreesToCompass } from '../utils/formatting'
@@ -50,32 +50,37 @@ export default function ForecastDetail() {
         <span className="text-[#7eb8e0]">{dateLabel}</span>
       </div>
 
-      <h1 className="text-2xl font-bold text-white mb-6">
+      <h1 className="text-xl sm:text-2xl font-bold text-white mb-6">
         {data?.spot?.name} — {dateLabel}
       </h1>
 
-      {/* Surf Height Chart */}
-      <div className="bg-[#112240] border border-[#1e3a5f] rounded-lg p-4 mb-4">
-        <h2 className="text-sm font-semibold text-[#4a6a8a] uppercase tracking-wider mb-3">
+      {/* Surf Height Chart — bars colored by rating */}
+      <div className="bg-[#112240] border border-[#1e3a5f] rounded-lg p-3 sm:p-4 mb-4">
+        <h2 className="text-xs sm:text-sm font-semibold text-[#4a6a8a] uppercase tracking-wider mb-3">
           Surf Height (ft)
         </h2>
-        <ResponsiveContainer width="100%" height={200}>
+        <ResponsiveContainer width="100%" height={220}>
           <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" />
-            <XAxis dataKey="hour" stroke="#4a6a8a" tick={{ fontSize: 11 }} />
+            <XAxis dataKey="hour" stroke="#4a6a8a" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
             <YAxis stroke="#4a6a8a" tick={{ fontSize: 11 }} />
             <Tooltip
               contentStyle={{ backgroundColor: '#0d1f3c', border: '1px solid #1e3a5f', borderRadius: 8 }}
               labelStyle={{ color: '#7eb8e0' }}
             />
-            <Bar dataKey="waveHeightFt" name="Wave Height" fill="#1976D2" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="waveHeightFt" name="Wave Height" radius={[4, 4, 0, 0]}>
+              {chartData.map((entry, i) => {
+                const r = calculateRating(entry.waveHeightFt, entry.windKnots, null, null, null)
+                return <Cell key={i} fill={r.color} />
+              })}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
 
       {/* Swell Chart */}
-      <div className="bg-[#112240] border border-[#1e3a5f] rounded-lg p-4 mb-4">
-        <h2 className="text-sm font-semibold text-[#4a6a8a] uppercase tracking-wider mb-3">
+      <div className="bg-[#112240] border border-[#1e3a5f] rounded-lg p-3 sm:p-4 mb-4">
+        <h2 className="text-xs sm:text-sm font-semibold text-[#4a6a8a] uppercase tracking-wider mb-3">
           Swell Height (ft)
         </h2>
         <ResponsiveContainer width="100%" height={180}>
@@ -93,8 +98,8 @@ export default function ForecastDetail() {
       </div>
 
       {/* Wind Chart */}
-      <div className="bg-[#112240] border border-[#1e3a5f] rounded-lg p-4 mb-4">
-        <h2 className="text-sm font-semibold text-[#4a6a8a] uppercase tracking-wider mb-3">
+      <div className="bg-[#112240] border border-[#1e3a5f] rounded-lg p-3 sm:p-4 mb-4">
+        <h2 className="text-xs sm:text-sm font-semibold text-[#4a6a8a] uppercase tracking-wider mb-3">
           Wind Speed (kts)
         </h2>
         <ResponsiveContainer width="100%" height={180}>
@@ -112,8 +117,8 @@ export default function ForecastDetail() {
       </div>
 
       {/* Wind Direction Labels */}
-      <div className="bg-[#112240] border border-[#1e3a5f] rounded-lg p-4 mb-4">
-        <h2 className="text-sm font-semibold text-[#4a6a8a] uppercase tracking-wider mb-3">
+      <div className="bg-[#112240] border border-[#1e3a5f] rounded-lg p-3 sm:p-4 mb-4">
+        <h2 className="text-xs sm:text-sm font-semibold text-[#4a6a8a] uppercase tracking-wider mb-3">
           Wind Direction by Hour
         </h2>
         <div className="flex gap-2 overflow-x-auto">

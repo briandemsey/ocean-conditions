@@ -57,8 +57,8 @@ export default function MultiSource() {
         <span className="text-[#7eb8e0]">Multi-Source Comparison</span>
       </div>
 
-      <h1 className="text-2xl font-bold text-white mb-2">{data?.spot?.name} — Source Comparison</h1>
-      <p className="text-[#7eb8e0] mb-6">
+      <h1 className="text-xl sm:text-2xl font-bold text-white mb-2">{data?.spot?.name} — Source Comparison</h1>
+      <p className="text-sm sm:text-base text-[#7eb8e0] mb-6">
         See where forecasts agree and diverge — this is what Surfline can't show you.
       </p>
 

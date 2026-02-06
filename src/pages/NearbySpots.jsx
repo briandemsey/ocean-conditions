@@ -61,7 +61,9 @@ export default function NearbySpots() {
         <span className="text-[#7eb8e0]">Nearby Spots</span>
       </div>
 
-      <h1 className="text-2xl font-bold text-white mb-6">Nearby Spots</h1>
+      <h1 className="text-xl sm:text-2xl font-bold text-white mb-6">
+        Nearby Spots — {currentSpot.name}
+      </h1>
 
       {/* Map */}
       <div className="mb-6 rounded-lg overflow-hidden border border-[#1e3a5f]">

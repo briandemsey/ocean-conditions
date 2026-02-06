@@ -3,33 +3,59 @@ import { useParams, Link } from 'react-router-dom'
 import ConditionCard from '../components/ConditionCard'
 import RatingBadge from '../components/RatingBadge'
 import { calculateRating, metersToFeet, msToKnots } from '../utils/ratings'
-import { degreesToCompass, formatTemp, formatWind, cToF } from '../utils/formatting'
+import { degreesToCompass, formatTemp, formatWind, formatTime, cToF } from '../utils/formatting'
 
 export default function SpotOverview() {
   const { spotId } = useParams()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [fetchedAt, setFetchedAt] = useState(null)
 
-  useEffect(() => {
+  function loadConditions() {
     setLoading(true)
+    setError(null)
     fetch(`/api/conditions/${spotId}`)
-      .then((res) => res.json())
-      .then((d) => { setData(d); setLoading(false) })
+      .then((res) => {
+        if (!res.ok) throw new Error(`Server returned ${res.status}`)
+        return res.json()
+      })
+      .then((d) => {
+        setData(d)
+        setFetchedAt(new Date())
+        setLoading(false)
+      })
       .catch((err) => { setError(err.message); setLoading(false) })
-  }, [spotId])
+  }
+
+  useEffect(() => { loadConditions() }, [spotId])
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin w-8 h-8 border-2 border-[#4a9eed] border-t-transparent rounded-full" />
-        <span className="ml-3 text-[#7eb8e0]">Loading conditions...</span>
+      <div className="space-y-4">
+        <div className="loading-shimmer h-8 w-48" />
+        <div className="loading-shimmer h-12 w-72" />
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="loading-shimmer h-24" />
+          ))}
+        </div>
       </div>
     )
   }
 
   if (error) {
-    return <div className="text-center py-20 text-red-400">Error: {error}</div>
+    return (
+      <div className="text-center py-20">
+        <p className="text-red-400 mb-4">Failed to load conditions: {error}</p>
+        <button
+          onClick={loadConditions}
+          className="px-5 py-2.5 bg-[#1976D2] text-white rounded-lg font-medium hover:bg-[#1565C0] transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    )
   }
 
   if (!data) return null
@@ -51,8 +77,16 @@ export default function SpotOverview() {
     airTemp = h.airTemperature?.sg ?? h.airTemperature?.noaa
     source = 'StormGlass'
   } else {
-    // Open-Meteo fallback
-    const mIdx = 0 // current hour index
+    // Open-Meteo fallback — find the closest hour to now
+    const now = Date.now()
+    let mIdx = 0
+    if (data.marine?.hourly?.time) {
+      let closest = Infinity
+      data.marine.hourly.time.forEach((t, i) => {
+        const diff = Math.abs(new Date(t).getTime() - now)
+        if (diff < closest) { closest = diff; mIdx = i }
+      })
+    }
     if (data.marine?.hourly) {
       waveHeight = data.marine.hourly.wave_height?.[mIdx]
       swellHeight = data.marine.hourly.swell_wave_height?.[mIdx]
@@ -77,26 +111,34 @@ export default function SpotOverview() {
     <div>
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-[#4a6a8a] mb-4">
-        <Link to="/" className="hover:text-[#4a9eed]">Search</Link>
+        <Link to="/" className="hover:text-[#4a9eed] transition-colors">Search</Link>
         <span>/</span>
         <span className="text-[#7eb8e0]">{data.spot?.name}</span>
       </div>
 
       {/* Spot header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-white">{data.spot?.name}</h1>
-          <p className="text-[#4a6a8a]">{data.spot?.region}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">{data.spot?.name}</h1>
+          <p className="text-[#4a6a8a]">
+            {data.spot?.region}
+            {fetchedAt && (
+              <span className="ml-3 text-xs">
+                Updated {formatTime(fetchedAt.toISOString())}
+              </span>
+            )}
+          </p>
         </div>
         <RatingBadge level={rating.level} label={rating.label} color={rating.color} size="lg" />
       </div>
 
       {/* Condition cards grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-8">
         <ConditionCard
           title="Surf"
           value={`${waveHeightFt.toFixed(1)} ft`}
           subtitle={`Rating: ${rating.label}`}
+          accentColor={rating.color}
         />
         <ConditionCard
           title="Swell"
@@ -119,27 +161,27 @@ export default function SpotOverview() {
         <ConditionCard
           title="Data Source"
           value={source}
-          subtitle={data.source.includes('fallback') ? 'Primary API unavailable' : 'Live data'}
+          subtitle={data.source.includes('fallback') ? 'Primary unavailable' : 'Live'}
         />
       </div>
 
       {/* Navigation to other screens */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-col sm:flex-row flex-wrap gap-3">
         <Link
           to={`/spot/${spotId}/forecast`}
-          className="px-5 py-2.5 bg-[#1976D2] text-white rounded-lg font-medium hover:bg-[#1565C0] transition-colors"
+          className="px-5 py-3 bg-[#1976D2] text-white rounded-lg font-medium hover:bg-[#1565C0] transition-colors text-center"
         >
-          View Forecast
+          View 10-Day Forecast
         </Link>
         <Link
           to={`/spot/${spotId}/compare`}
-          className="px-5 py-2.5 bg-[#112240] border border-[#1e3a5f] text-white rounded-lg font-medium hover:border-[#4a9eed] transition-colors"
+          className="px-5 py-3 bg-[#112240] border border-[#1e3a5f] text-white rounded-lg font-medium hover:border-[#4a9eed] transition-colors text-center"
         >
           Multi-Source Comparison
         </Link>
         <Link
           to={`/spot/${spotId}/nearby`}
-          className="px-5 py-2.5 bg-[#112240] border border-[#1e3a5f] text-white rounded-lg font-medium hover:border-[#4a9eed] transition-colors"
+          className="px-5 py-3 bg-[#112240] border border-[#1e3a5f] text-white rounded-lg font-medium hover:border-[#4a9eed] transition-colors text-center"
         >
           Nearby Spots
         </Link>

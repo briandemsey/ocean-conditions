@@ -40,7 +40,7 @@ export default function ForecastBar() {
         <span className="text-[#7eb8e0]">Forecast</span>
       </div>
 
-      <h1 className="text-2xl font-bold text-white mb-2">{data?.spot?.name} — 10-Day Forecast</h1>
+      <h1 className="text-xl sm:text-2xl font-bold text-white mb-2">{data?.spot?.name} — 10-Day Forecast</h1>
 
       {/* View toggle */}
       <div className="flex gap-2 mb-6">
@@ -69,9 +69,13 @@ export default function ForecastBar() {
             <Link
               key={i}
               to={`/spot/${spotId}/forecast/${i}`}
-              className="flex-shrink-0 w-32 bg-[#112240] border border-[#1e3a5f] rounded-lg p-4 hover:border-[#4a9eed] transition-colors text-center"
+              className={`flex-shrink-0 w-32 bg-[#112240] border rounded-lg p-4 hover:border-[#4a9eed] transition-all text-center ${
+                i === 0 ? 'border-[#4a9eed]' : 'border-[#1e3a5f]'
+              }`}
             >
-              <p className="text-xs text-[#4a6a8a] mb-2">{day.dateLabel}</p>
+              <p className="text-xs text-[#4a6a8a] mb-2">
+                {i === 0 ? <span className="text-[#4a9eed] font-semibold">Today</span> : day.dateLabel}
+              </p>
               <div className="mb-2">
                 <RatingBadge level={day.rating.level} label={day.rating.label} color={day.rating.color} size="sm" />
               </div>
