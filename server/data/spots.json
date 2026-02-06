@@ -1,0 +1,17 @@
+[
+  { "id": "hb-south", "name": "Huntington Beach Southside", "lat": 33.6501, "lng": -117.9990, "region": "Orange County", "subregion": "Huntington Beach", "optimalSwell": "S-SW", "optimalWind": "NE-E" },
+  { "id": "hb-pier", "name": "Huntington Beach Pier", "lat": 33.6553, "lng": -118.0028, "region": "Orange County", "subregion": "Huntington Beach", "optimalSwell": "S-SW", "optimalWind": "NE-E" },
+  { "id": "trestles", "name": "Trestles (Lowers)", "lat": 33.3828, "lng": -117.5889, "region": "San Diego North", "subregion": "San Clemente", "optimalSwell": "S-SSW", "optimalWind": "NE" },
+  { "id": "wedge", "name": "The Wedge", "lat": 33.5930, "lng": -117.8819, "region": "Orange County", "subregion": "Newport Beach", "optimalSwell": "S-SSW", "optimalWind": "NW" },
+  { "id": "rincon", "name": "Rincon", "lat": 34.3742, "lng": -119.4758, "region": "Santa Barbara", "subregion": "Carpinteria", "optimalSwell": "W-NW", "optimalWind": "N-NE" },
+  { "id": "malibu", "name": "Malibu (First Point)", "lat": 34.0362, "lng": -118.6798, "region": "Los Angeles", "subregion": "Malibu", "optimalSwell": "S-SW", "optimalWind": "N-NE" },
+  { "id": "blacks", "name": "Blacks Beach", "lat": 32.8867, "lng": -117.2536, "region": "San Diego", "subregion": "La Jolla", "optimalSwell": "W-NW", "optimalWind": "E-NE" },
+  { "id": "oceanside", "name": "Oceanside Pier", "lat": 33.1928, "lng": -117.3862, "region": "San Diego North", "subregion": "Oceanside", "optimalSwell": "S-SW", "optimalWind": "E-NE" },
+  { "id": "dana-point", "name": "Doheny State Beach", "lat": 33.4600, "lng": -117.6870, "region": "Orange County", "subregion": "Dana Point", "optimalSwell": "S-SW", "optimalWind": "NW" },
+  { "id": "el-porto", "name": "El Porto", "lat": 33.8958, "lng": -118.4206, "region": "Los Angeles", "subregion": "Manhattan Beach", "optimalSwell": "W-SW", "optimalWind": "E-NE" },
+  { "id": "san-onofre", "name": "San Onofre", "lat": 33.3750, "lng": -117.5694, "region": "San Diego North", "subregion": "San Clemente", "optimalSwell": "S-SW", "optimalWind": "E-NE" },
+  { "id": "newport", "name": "Newport Beach", "lat": 33.6095, "lng": -117.9294, "region": "Orange County", "subregion": "Newport Beach", "optimalSwell": "S-SW", "optimalWind": "NE" },
+  { "id": "seal-beach", "name": "Seal Beach Pier", "lat": 33.7372, "lng": -118.1114, "region": "Orange County", "subregion": "Seal Beach", "optimalSwell": "S-SW", "optimalWind": "N-NE" },
+  { "id": "windansea", "name": "Windansea", "lat": 32.8297, "lng": -117.2812, "region": "San Diego", "subregion": "La Jolla", "optimalSwell": "W-SW", "optimalWind": "E-NE" },
+  { "id": "swamis", "name": "Swami's", "lat": 33.0337, "lng": -117.2930, "region": "San Diego North", "subregion": "Encinitas", "optimalSwell": "W-NW", "optimalWind": "E-NE" }
+]
