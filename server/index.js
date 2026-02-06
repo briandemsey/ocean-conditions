@@ -13,6 +13,9 @@ const API_KEY = process.env.STORMGLASS_API_KEY
 app.use(cors())
 app.use(express.json())
 
+// Serve Vite production build
+app.use(express.static(join(__dirname, '..', 'dist')))
+
 // Load spots database
 const spotsPath = join(__dirname, 'data', 'spots.json')
 let spots = []
@@ -201,6 +204,11 @@ app.get('/api/compare/:spotId', async (req, res) => {
     console.error('Compare error:', err.message)
     res.status(502).json({ error: 'Comparison data unavailable', detail: err.message })
   }
+})
+
+// Catch-all: serve index.html for client-side routing
+app.get('/{*path}', (req, res) => {
+  res.sendFile(join(__dirname, '..', 'dist', 'index.html'))
 })
 
 app.listen(PORT, () => {
