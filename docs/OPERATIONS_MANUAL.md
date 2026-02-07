@@ -1,9 +1,10 @@
 # Ocean Conditions Intelligence Platform — Operations Manual
 
 **Project:** H-CONSULT Ocean Conditions Intelligence
-**Version:** 1.0
-**Last Updated:** February 6, 2026
-**Owner:** Brian / H-Consult
+**Part of:** [Action Sports WORLD Platform](STRATEGY.md)
+**Version:** 1.1
+**Last Updated:** February 7, 2026
+**Owner:** Brian Demsey / H-Consult
 
 ---
 
@@ -34,8 +35,10 @@
 
 A 6-screen ocean conditions intelligence app that replicates Surfline's core user experience using public weather/ocean APIs (StormGlass, Open-Meteo) instead of Surfline's proprietary LOTUS engine.
 
+This is the **first vertical** of the [Action Sports WORLD platform](STRATEGY.md) — a federated multi-sport platform combining conditions intelligence (Surfline model) with activity tracking (Strava model) across surfing, SUP, foiling, skateboarding, snowboarding, MTB, and more.
+
 The app runs as:
-- **Web application** — React + Vite, accessible from any browser
+- **Web application** — React + Vite, live at https://actionsports.world
 - **iOS application** — React Native + Expo, submitted to the Apple App Store
 
 ### Key Differentiator
@@ -898,6 +901,14 @@ gh pr create                   # Create pull request
 git push origin main           # Auto-deploys to Render → actionsports.world
 eas build --platform ios --profile production  # Production iOS build
 ```
+
+---
+
+## Related Documents
+
+| Document | Description |
+|----------|-------------|
+| [STRATEGY.md](STRATEGY.md) | Action Sports WORLD platform strategy — vision, rollout phases, competitive landscape, revenue model |
 
 ---
 
