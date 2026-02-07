@@ -92,10 +92,11 @@ Multi-source forecast comparison with a consensus/agreement score. Surfline show
 
 | Service             | Purpose                           |
 |---------------------|-----------------------------------|
-| Vercel or Railway   | Web app hosting                   |
+| Render              | Web app hosting (auto-deploy from GitHub) |
+| Custom Domain       | actionsports.world (DNS via GoDaddy, HTTPS via Render/Let's Encrypt) |
 | Expo EAS            | iOS builds + App Store submission |
 | App Store Connect   | iOS app management + review       |
-| GitHub              | Source control                    |
+| GitHub              | Source control (briandemsey/ocean-conditions) |
 | GitHub Actions      | CI/CD                             |
 
 ---
@@ -368,42 +369,44 @@ npm run build      # Output → dist/
 
 # Preview production build locally
 npm run preview
+
+# Run production server locally (serves both API + frontend)
+npm start          # http://localhost:3001
 ```
 
-### Deploy to Vercel (Recommended)
+### Deploy to Render (Current Setup)
 
-```bash
-# Install Vercel CLI
-npm install -g vercel
+The app is deployed on **Render** with auto-deploy from GitHub. Every push to `main` triggers a new deployment.
 
-# Deploy (first time — follow prompts to link project)
-vercel
+- **Live URL:** https://actionsports.world
+- **Render URL:** https://ocean-conditions.onrender.com
+- **Render Dashboard:** https://dashboard.render.com
 
-# Deploy to production
-vercel --prod
-```
+**Render Service Configuration:**
 
-### Deploy to Railway (Alternative)
+| Setting          | Value                        |
+|------------------|------------------------------|
+| Build Command    | `npm install && npm run build` |
+| Start Command    | `npm start`                  |
+| Branch           | `main`                       |
+| Region           | Oregon (US West)             |
+| Instance Type    | Free                         |
 
-```bash
-# Install Railway CLI
-npm install -g @railway/cli
+**How it works:** Express serves both the Vite production build (`dist/`) as static files and the `/api/*` routes from a single service. A catch-all route serves `index.html` for client-side routing (React Router).
 
-# Login and deploy
-railway login
-railway init
-railway up
-```
+**Custom Domain (GoDaddy → Render):**
+- CNAME: `www` → `ocean-conditions.onrender.com`
+- A record: `@` → Render's IP (configured in Render Custom Domains)
+- HTTPS: Auto-provisioned via Let's Encrypt
 
 ### Environment Variables for Production
 
-Set these in your hosting provider's dashboard:
+Set these in Render's dashboard under **Environment**:
 
 | Variable             | Value                          |
 |----------------------|--------------------------------|
 | `STORMGLASS_API_KEY` | Your StormGlass API key        |
-| `NODE_ENV`           | `production`                   |
-| `PORT`               | `3001` (or provider default)   |
+| `PORT`               | Set automatically by Render    |
 
 ---
 
@@ -554,8 +557,8 @@ eas submit --platform ios --profile production
 | Environment  | Purpose              | URL                                     |
 |-------------|----------------------|------------------------------------------|
 | Development | Local coding/testing | http://localhost:5173 (web), Simulator (iOS) |
-| Staging     | Pre-release testing  | https://staging.ocean-conditions.app     |
-| Production  | Live users + demo    | https://ocean-conditions.app             |
+| Production  | Live users + demo    | https://actionsports.world               |
+| Render URL  | Direct access        | https://ocean-conditions.onrender.com    |
 
 ### Environment Variables by Stage
 
@@ -584,12 +587,18 @@ NODE_ENV=production
 
 ## 11. CI/CD Pipeline
 
-### GitHub Actions — Web
+### Web Deployment (Render Auto-Deploy)
+
+Render automatically deploys on every push to `main`. No GitHub Actions needed for web deployment.
+
+**To manually trigger a redeploy:** Go to Render Dashboard → ocean-conditions service → Manual Deploy → Deploy latest commit.
+
+### GitHub Actions — Web (Optional CI)
 
 File: `.github/workflows/web.yml`
 
 ```yaml
-name: Web Build & Deploy
+name: Web Build Check
 
 on:
   push:
@@ -606,17 +615,7 @@ jobs:
         with:
           node-version: 18
       - run: npm ci
-      - run: npm run lint
-      - run: npm run test
       - run: npm run build
-      # Deploy to Vercel on push to main
-      - uses: amondnet/vercel-action@v25
-        if: github.ref == 'refs/heads/main'
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
 ```
 
 ### GitHub Actions — iOS
@@ -724,9 +723,9 @@ android/
 
 ### Web Release
 
-1. Merge feature branch to `main` via pull request
-2. GitHub Actions automatically builds and deploys to Vercel
-3. Verify on production URL
+1. Merge feature branch to `main` via pull request (or push directly to `main`)
+2. Render automatically builds and deploys (~2-3 minutes)
+3. Verify at https://actionsports.world
 4. Done
 
 ### iOS Release
@@ -896,7 +895,7 @@ git push -u origin feature/name # Push branch
 gh pr create                   # Create pull request
 
 # --- Deployment ---
-vercel --prod                  # Deploy web to production
+git push origin main           # Auto-deploys to Render → actionsports.world
 eas build --platform ios --profile production  # Production iOS build
 ```
 
