@@ -31,21 +31,20 @@ export default function App() {
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#1976D2] to-[#7B1FA2] flex items-center justify-center text-white font-bold text-sm">
               OC
             </div>
-            <div>
+            <div style={{ textShadow: '0 2px 8px rgba(0,0,0,0.7)' }}>
               <span className="text-lg font-bold text-white tracking-tight">Ocean Conditions</span>
-              <span className="text-xs text-[#4a9eed] font-medium tracking-wide uppercase ml-2 hidden sm:inline">
+              <span className="text-xs text-[#c084fc] font-semibold tracking-wide uppercase ml-2 hidden sm:inline">
                 Intelligence
               </span>
             </div>
           </Link>
-          {!isHome && (
-            <Link
-              to="/"
-              className="text-sm text-white/60 hover:text-[#4a9eed] transition-colors"
-            >
-              Search Spots
-            </Link>
-          )}
+          <Link
+            to="/"
+            className="text-sm text-white/60 hover:text-[#4a9eed] transition-colors"
+            style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}
+          >
+            Search Spots
+          </Link>
         </nav>
 
         {/* Page content */}

@@ -32,7 +32,7 @@ export default function ForecastDetail() {
   const chartData = buildChartData(data, dayIdx)
 
   if (!chartData || chartData.length === 0) {
-    return <div className="text-center py-20 text-[#4a6a8a]">No data for this day.</div>
+    return <div className="text-center py-20 text-white/60">No data for this day.</div>
   }
 
   const dateLabel = formatDateShort(chartData[0]?.time)
@@ -40,7 +40,7 @@ export default function ForecastDetail() {
   return (
     <div>
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-[#4a6a8a] mb-4">
+      <div className="flex items-center gap-2 text-sm text-white/60 mb-4">
         <Link to="/" className="hover:text-[#4a9eed]">Search</Link>
         <span>/</span>
         <Link to={`/spot/${spotId}`} className="hover:text-[#4a9eed]">{data?.spot?.name}</Link>
@@ -56,7 +56,7 @@ export default function ForecastDetail() {
 
       {/* Surf Height Chart — bars colored by rating */}
       <div className="bg-[#112240] border border-[#1e3a5f] rounded-lg p-3 sm:p-4 mb-4">
-        <h2 className="text-xs sm:text-sm font-semibold text-[#4a6a8a] uppercase tracking-wider mb-3">
+        <h2 className="text-xs sm:text-sm font-semibold text-white/60 uppercase tracking-wider mb-3">
           Surf Height (ft)
         </h2>
         <ResponsiveContainer width="100%" height={220}>
@@ -80,7 +80,7 @@ export default function ForecastDetail() {
 
       {/* Swell Chart */}
       <div className="bg-[#112240] border border-[#1e3a5f] rounded-lg p-3 sm:p-4 mb-4">
-        <h2 className="text-xs sm:text-sm font-semibold text-[#4a6a8a] uppercase tracking-wider mb-3">
+        <h2 className="text-xs sm:text-sm font-semibold text-white/60 uppercase tracking-wider mb-3">
           Swell Height (ft)
         </h2>
         <ResponsiveContainer width="100%" height={180}>
@@ -99,7 +99,7 @@ export default function ForecastDetail() {
 
       {/* Wind Chart */}
       <div className="bg-[#112240] border border-[#1e3a5f] rounded-lg p-3 sm:p-4 mb-4">
-        <h2 className="text-xs sm:text-sm font-semibold text-[#4a6a8a] uppercase tracking-wider mb-3">
+        <h2 className="text-xs sm:text-sm font-semibold text-white/60 uppercase tracking-wider mb-3">
           Wind Speed (kts)
         </h2>
         <ResponsiveContainer width="100%" height={180}>
@@ -118,13 +118,13 @@ export default function ForecastDetail() {
 
       {/* Wind Direction Labels */}
       <div className="bg-[#112240] border border-[#1e3a5f] rounded-lg p-3 sm:p-4 mb-4">
-        <h2 className="text-xs sm:text-sm font-semibold text-[#4a6a8a] uppercase tracking-wider mb-3">
+        <h2 className="text-xs sm:text-sm font-semibold text-white/60 uppercase tracking-wider mb-3">
           Wind Direction by Hour
         </h2>
         <div className="flex gap-2 overflow-x-auto">
           {chartData.map((d, i) => (
             <div key={i} className="flex-shrink-0 text-center w-12">
-              <p className="text-xs text-[#4a6a8a]">{d.hour}</p>
+              <p className="text-xs text-white/60">{d.hour}</p>
               <p className="text-sm text-white font-medium">{d.windCompass}</p>
             </div>
           ))}

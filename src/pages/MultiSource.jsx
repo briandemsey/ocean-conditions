@@ -38,7 +38,7 @@ export default function MultiSource() {
   if (!data || data.source === 'none') {
     return (
       <div className="text-center py-20">
-        <p className="text-[#4a6a8a] mb-2">Multi-source comparison requires a StormGlass API key.</p>
+        <p className="text-white/60 mb-2">Multi-source comparison requires a StormGlass API key.</p>
         <p className="text-[#7eb8e0] text-sm">Add STORMGLASS_API_KEY to your .env file.</p>
       </div>
     )
@@ -49,7 +49,7 @@ export default function MultiSource() {
   return (
     <div>
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-[#4a6a8a] mb-4">
+      <div className="flex items-center gap-2 text-sm text-white/60 mb-4">
         <Link to="/" className="hover:text-[#4a9eed]">Search</Link>
         <span>/</span>
         <Link to={`/spot/${spotId}`} className="hover:text-[#4a9eed]">{data?.spot?.name}</Link>
@@ -71,7 +71,7 @@ export default function MultiSource() {
 
       {/* Wave Height Comparison */}
       <div className="bg-[#112240] border border-[#1e3a5f] rounded-lg p-4 mb-4">
-        <h2 className="text-sm font-semibold text-[#4a6a8a] uppercase tracking-wider mb-3">
+        <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-3">
           Wave Height by Source (ft)
         </h2>
         <ResponsiveContainer width="100%" height={300}>
@@ -101,7 +101,7 @@ export default function MultiSource() {
 
       {/* Wind Speed Comparison */}
       <div className="bg-[#112240] border border-[#1e3a5f] rounded-lg p-4 mb-4">
-        <h2 className="text-sm font-semibold text-[#4a6a8a] uppercase tracking-wider mb-3">
+        <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-3">
           Wind Speed by Source (m/s)
         </h2>
         <ResponsiveContainer width="100%" height={250}>
@@ -131,7 +131,7 @@ export default function MultiSource() {
 
       {/* Source legend */}
       <div className="bg-[#112240] border border-[#1e3a5f] rounded-lg p-4">
-        <h2 className="text-sm font-semibold text-[#4a6a8a] uppercase tracking-wider mb-3">
+        <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-3">
           Data Sources
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">

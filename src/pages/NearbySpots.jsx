@@ -41,7 +41,7 @@ export default function NearbySpots() {
   }, [spotId])
 
   if (!currentSpot) {
-    return <div className="text-center py-20 text-[#4a6a8a]">Spot not found.</div>
+    return <div className="text-center py-20 text-white/60">Spot not found.</div>
   }
 
   const sorted = [...nearbyData].sort((a, b) => {
@@ -53,7 +53,7 @@ export default function NearbySpots() {
   return (
     <div>
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-[#4a6a8a] mb-4">
+      <div className="flex items-center gap-2 text-sm text-white/60 mb-4">
         <Link to="/" className="hover:text-[#4a9eed]">Search</Link>
         <span>/</span>
         <Link to={`/spot/${spotId}`} className="hover:text-[#4a9eed]">{currentSpot.name}</Link>
@@ -119,7 +119,7 @@ export default function NearbySpots() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-[#4a6a8a] text-xs uppercase">
+              <tr className="text-white/60 text-xs uppercase">
                 <th className="text-left py-2 px-3">Spot</th>
                 <th className="text-left py-2 px-3">Distance</th>
                 <th className="text-left py-2 px-3">Rating</th>
@@ -134,7 +134,7 @@ export default function NearbySpots() {
                     <Link to={`/spot/${s.id}`} className="text-white hover:text-[#4a9eed] font-medium">
                       {s.name}
                     </Link>
-                    <p className="text-xs text-[#4a6a8a]">{s.region}</p>
+                    <p className="text-xs text-white/60">{s.region}</p>
                   </td>
                   <td className="py-3 px-3 text-[#7eb8e0]">{s.distance.toFixed(1)} mi</td>
                   <td className="py-3 px-3">

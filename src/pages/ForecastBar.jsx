@@ -32,7 +32,7 @@ export default function ForecastBar() {
   return (
     <div>
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-[#4a6a8a] mb-4">
+      <div className="flex items-center gap-2 text-sm text-white/60 mb-4">
         <Link to="/" className="hover:text-[#4a9eed]">Search</Link>
         <span>/</span>
         <Link to={`/spot/${spotId}`} className="hover:text-[#4a9eed]">{data?.spot?.name}</Link>
@@ -73,14 +73,14 @@ export default function ForecastBar() {
                 i === 0 ? 'border-[#4a9eed]' : 'border-[#1e3a5f]'
               }`}
             >
-              <p className="text-xs text-[#4a6a8a] mb-2">
+              <p className="text-xs text-white/60 mb-2">
                 {i === 0 ? <span className="text-[#4a9eed] font-semibold">Today</span> : day.dateLabel}
               </p>
               <div className="mb-2">
                 <RatingBadge level={day.rating.level} label={day.rating.label} color={day.rating.color} size="sm" />
               </div>
               <p className="text-lg font-bold text-white">{day.waveRange}</p>
-              <p className="text-xs text-[#4a6a8a] mt-1">{day.windLabel}</p>
+              <p className="text-xs text-white/60 mt-1">{day.windLabel}</p>
             </Link>
           ))}
         </div>
@@ -89,7 +89,7 @@ export default function ForecastBar() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-[#4a6a8a] text-xs uppercase">
+              <tr className="text-white/60 text-xs uppercase">
                 <th className="text-left py-2 px-3">Day</th>
                 <th className="text-left py-2 px-3">Rating</th>
                 <th className="text-left py-2 px-3">Surf</th>

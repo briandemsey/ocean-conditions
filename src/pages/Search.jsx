@@ -81,9 +81,9 @@ export default function Search() {
                   >
                     <div>
                       <span className="text-white font-medium">{spot.name}</span>
-                      <span className="text-[#4a6a8a] text-xs ml-2">{spot.subregion}</span>
+                      <span className="text-white/50 text-xs ml-2">{spot.subregion}</span>
                     </div>
-                    <span className="text-[#4a6a8a] text-sm">{spot.region}</span>
+                    <span className="text-white/50 text-sm">{spot.region}</span>
                   </button>
                 </li>
               ))}
@@ -92,7 +92,7 @@ export default function Search() {
 
           {/* No results */}
           {query.length > 2 && filtered.length === 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-[#112240]/95 backdrop-blur-sm border border-[#1e3a5f] rounded-xl px-5 py-4 text-[#4a6a8a] text-sm">
+            <div className="absolute top-full left-0 right-0 mt-1 bg-[#112240]/95 backdrop-blur-sm border border-[#1e3a5f] rounded-xl px-5 py-4 text-white/50 text-sm">
               No spots found for "{query}"
             </div>
           )}
@@ -101,7 +101,7 @@ export default function Search() {
 
       {/* Popular spots — below the hero */}
       <div className="w-full max-w-xl px-4 sm:px-0 mt-10 mb-8">
-        <h2 className="text-sm font-semibold text-[#4a6a8a] uppercase tracking-wider mb-4">
+        <h2 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-4" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
           Popular Spots — California Coast
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -114,7 +114,7 @@ export default function Search() {
               <span className="text-white text-sm font-medium block group-hover:text-[#4a9eed] transition-colors">
                 {spot.name}
               </span>
-              <span className="text-[#4a6a8a] text-xs">{spot.region} / {spot.subregion}</span>
+              <span className="text-white/50 text-xs">{spot.region} / {spot.subregion}</span>
             </button>
           ))}
         </div>

@@ -43,7 +43,7 @@ export default function AgreementScore({ sources, field }) {
       </div>
       <div>
         <p className="text-white font-medium text-sm">{label}</p>
-        <p className="text-[#4a6a8a] text-xs">{values.length} sources reporting</p>
+        <p className="text-white/60 text-xs">{values.length} sources reporting</p>
       </div>
     </div>
   )

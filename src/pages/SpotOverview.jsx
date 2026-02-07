@@ -110,20 +110,20 @@ export default function SpotOverview() {
   return (
     <div>
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-[#4a6a8a] mb-4">
+      <div className="flex items-center gap-2 text-sm text-white/70 mb-4" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
         <Link to="/" className="hover:text-[#4a9eed] transition-colors">Search</Link>
         <span>/</span>
-        <span className="text-[#7eb8e0]">{data.spot?.name}</span>
+        <span className="text-white">{data.spot?.name}</span>
       </div>
 
       {/* Spot header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 min-w-0">
-        <div className="min-w-0">
+        <div className="min-w-0" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
           <h1 className="text-2xl sm:text-3xl font-bold text-white truncate">{data.spot?.name}</h1>
-          <p className="text-[#4a6a8a]">
+          <p className="text-white/70">
             {data.spot?.region}
             {fetchedAt && (
-              <span className="ml-3 text-xs">
+              <span className="ml-3 text-xs text-white/60">
                 Updated {formatTime(fetchedAt.toISOString())}
               </span>
             )}

@@ -7,7 +7,7 @@ export default function ConditionCard({ title, value, subtitle, accentColor }) {
           style={{ backgroundColor: accentColor }}
         />
       )}
-      <h3 className="text-[10px] sm:text-xs font-semibold text-[#4a6a8a] uppercase tracking-wider mb-1.5">
+      <h3 className="text-[10px] sm:text-xs font-semibold text-white/60 uppercase tracking-wider mb-1.5">
         {title}
       </h3>
       <p className="text-xl sm:text-2xl font-bold text-white leading-tight">{value}</p>
