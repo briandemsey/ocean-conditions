@@ -24,7 +24,7 @@ export default function App() {
       {/* Single uniform tint — same opacity everywhere */}
       <div className="fixed inset-0 -z-10 bg-[#0a1628]/40" />
 
-      <div className="min-h-screen flex flex-col relative">
+      <div className="min-h-screen flex flex-col relative overflow-x-hidden">
         {/* Nav bar — no background, just a subtle blur */}
         <nav className="backdrop-blur-sm border-b border-white/10 px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-50">
           <Link to="/" className="flex items-center gap-2">

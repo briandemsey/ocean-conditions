@@ -117,9 +117,9 @@ export default function SpotOverview() {
       </div>
 
       {/* Spot header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">{data.spot?.name}</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 min-w-0">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white truncate">{data.spot?.name}</h1>
           <p className="text-[#4a6a8a]">
             {data.spot?.region}
             {fetchedAt && (
