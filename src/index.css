@@ -40,11 +40,16 @@ main {
   background: #0a1628;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e3a5f;
+  background: #4a6a8f;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #2a4a6f;
+  background: #6a8aaf;
+}
+
+/* Always show scrollbar on pages with overflow */
+html {
+  overflow-y: scroll;
 }
 
 /* Leaflet map container */

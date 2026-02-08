@@ -3,14 +3,19 @@ import { useParams, Link } from 'react-router-dom'
 import ConditionCard from '../components/ConditionCard'
 import RatingBadge from '../components/RatingBadge'
 import { calculateRating, metersToFeet, msToKnots } from '../utils/ratings'
+import { useAuth } from '../context/AuthContext'
 import { degreesToCompass, formatTemp, formatWind, formatTime, cToF } from '../utils/formatting'
 
 export default function SpotOverview() {
   const { spotId } = useParams()
+  const { user } = useAuth()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [fetchedAt, setFetchedAt] = useState(null)
+  const [spotLeaderboard, setSpotLeaderboard] = useState([])
+  const [spotLbPeriod, setSpotLbPeriod] = useState('all')
+  const [spotLbLoading, setSpotLbLoading] = useState(true)
 
   function loadConditions() {
     setLoading(true)
@@ -29,6 +34,14 @@ export default function SpotOverview() {
   }
 
   useEffect(() => { loadConditions() }, [spotId])
+
+  useEffect(() => {
+    setSpotLbLoading(true)
+    fetch(`/api/leaderboards/spot/${spotId}?period=${spotLbPeriod}`)
+      .then((res) => res.json())
+      .then((d) => { setSpotLeaderboard(d); setSpotLbLoading(false) })
+      .catch(() => { setSpotLeaderboard([]); setSpotLbLoading(false) })
+  }, [spotId, spotLbPeriod])
 
   if (loading) {
     return (
@@ -165,6 +178,114 @@ export default function SpotOverview() {
         />
       </div>
 
+      {/* Spot Guide */}
+      {data.spot?.breakType && (
+        <div className="bg-[#112240] border border-[#1e3a5f] rounded-lg p-4 sm:p-6 mb-8">
+          <h2 className="text-[10px] sm:text-xs font-semibold text-white/60 uppercase tracking-wider mb-4">Spot Guide</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-3 mb-5">
+            <div>
+              <span className="text-[10px] sm:text-xs text-white/50 uppercase tracking-wider">Break Type</span>
+              <p className="text-sm sm:text-base font-semibold text-white capitalize">{data.spot.breakType}</p>
+            </div>
+            <div>
+              <span className="text-[10px] sm:text-xs text-white/50 uppercase tracking-wider">Difficulty</span>
+              <p className="text-sm sm:text-base font-semibold text-white capitalize">{data.spot.difficulty}</p>
+            </div>
+            <div>
+              <span className="text-[10px] sm:text-xs text-white/50 uppercase tracking-wider">Best Tide</span>
+              <p className="text-sm sm:text-base font-semibold text-white capitalize">{data.spot.bestTide}</p>
+            </div>
+            <div>
+              <span className="text-[10px] sm:text-xs text-white/50 uppercase tracking-wider">Best Swell</span>
+              <p className="text-sm sm:text-base font-semibold text-white">{data.spot.optimalSwell}</p>
+            </div>
+            <div>
+              <span className="text-[10px] sm:text-xs text-white/50 uppercase tracking-wider">Best Wind</span>
+              <p className="text-sm sm:text-base font-semibold text-white">{data.spot.optimalWind}</p>
+            </div>
+            <div>
+              <span className="text-[10px] sm:text-xs text-white/50 uppercase tracking-wider">Season</span>
+              <p className="text-sm sm:text-base font-semibold text-white capitalize">{data.spot.bestSeason}</p>
+            </div>
+          </div>
+          {data.spot.hazards?.length > 0 && (
+            <div className="mb-4">
+              <span className="text-[10px] sm:text-xs text-white/50 uppercase tracking-wider mr-2">Hazards</span>
+              <div className="mt-1.5">
+                {data.spot.hazards.map((h) => (
+                  <span key={h} className="inline-block px-2 py-0.5 bg-[#0d1f3c] border border-[#1e3a5f] rounded text-xs text-[#7eb8e0] mr-1.5 mb-1.5">{h}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          {data.spot.description && (
+            <p className="text-white/80 text-sm mb-3">{data.spot.description}</p>
+          )}
+          {data.spot.tips && (
+            <p className="text-white/60 text-sm italic">Tip: {data.spot.tips}</p>
+          )}
+        </div>
+      )}
+
+      {/* Top Surfers Here */}
+      <div className="bg-[#112240] border border-[#1e3a5f] rounded-lg p-4 sm:p-6 mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-[10px] sm:text-xs font-semibold text-white/60 uppercase tracking-wider">Top Surfers Here</h2>
+          <div className="flex rounded-md overflow-hidden border border-[#1e3a5f]">
+            <button
+              onClick={() => setSpotLbPeriod('all')}
+              className={`px-2.5 py-1 text-[10px] sm:text-xs font-medium transition-colors ${
+                spotLbPeriod === 'all' ? 'bg-[#1976D2] text-white' : 'bg-[#0d1f3c] text-white/50 hover:text-white'
+              }`}
+            >
+              All Time
+            </button>
+            <button
+              onClick={() => setSpotLbPeriod('month')}
+              className={`px-2.5 py-1 text-[10px] sm:text-xs font-medium transition-colors ${
+                spotLbPeriod === 'month' ? 'bg-[#1976D2] text-white' : 'bg-[#0d1f3c] text-white/50 hover:text-white'
+              }`}
+            >
+              This Month
+            </button>
+          </div>
+        </div>
+        {spotLbLoading ? (
+          <div className="space-y-2">
+            {[...Array(3)].map((_, i) => <div key={i} className="loading-shimmer h-6 w-full" />)}
+          </div>
+        ) : spotLeaderboard.length === 0 ? (
+          <p className="text-white/40 text-sm text-center py-3">No sessions logged here yet</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-white/50 text-[10px] sm:text-xs uppercase tracking-wider">
+                <th className="text-left pb-2 w-8">#</th>
+                <th className="text-left pb-2">Surfer</th>
+                <th className="text-right pb-2">Sessions</th>
+                <th className="text-right pb-2 hidden sm:table-cell">Waves</th>
+                <th className="text-right pb-2 hidden sm:table-cell">Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {spotLeaderboard.map((r) => (
+                <tr key={r.username} className="border-t border-white/5">
+                  <td className="py-2 text-white/50">{r.rank}</td>
+                  <td className="py-2">
+                    <Link to={`/athlete/${r.username}`} className="text-[#4a9eed] hover:text-[#7eb8e0] transition-colors">
+                      {r.username}
+                    </Link>
+                  </td>
+                  <td className="py-2 text-right text-white font-medium">{r.sessions}</td>
+                  <td className="py-2 text-right text-white/70 hidden sm:table-cell">{r.waves}</td>
+                  <td className="py-2 text-right text-white/70 hidden sm:table-cell">{r.total_time_formatted}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
       {/* Navigation to other screens */}
       <div className="flex flex-col sm:flex-row flex-wrap gap-3">
         <Link
@@ -185,6 +306,31 @@ export default function SpotOverview() {
         >
           Nearby Spots
         </Link>
+        {user ? (
+          <Link
+            to={`/sessions/log/${spotId}`}
+            className="px-5 py-3 bg-[#112240] border border-[#1e3a5f] text-white rounded-lg font-medium hover:border-[#4a9eed] transition-colors text-center"
+          >
+            Log Session
+          </Link>
+        ) : (
+          <Link
+            to="/login"
+            className="px-5 py-3 bg-[#112240] border border-[#1e3a5f] text-white rounded-lg font-medium hover:border-[#4a9eed] transition-colors text-center"
+          >
+            Log In to Log Session
+          </Link>
+        )}
+        {data.spot?.surflineUrl && (
+          <a
+            href={data.spot.surflineUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-5 py-3 bg-[#112240] border border-[#1e3a5f] text-white rounded-lg font-medium hover:border-[#4a9eed] transition-colors text-center"
+          >
+            View on Surfline
+          </a>
+        )}
       </div>
     </div>
   )

@@ -909,6 +909,7 @@ eas build --platform ios --profile production  # Production iOS build
 | Document | Description |
 |----------|-------------|
 | [STRATEGY.md](STRATEGY.md) | Action Sports WORLD platform strategy — vision, rollout phases, competitive landscape, revenue model |
+| [SESSION_TRACKING_PLAN.md](SESSION_TRACKING_PLAN.md) | Implementation plan for the Session Tracking module (Strava engine MVP) |
 
 ---
 
