@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import ConditionCard from '../components/ConditionCard'
 import SessionCard from '../components/SessionCard'
+import GarminConnect from '../components/GarminConnect'
 import { useAuth } from '../context/AuthContext'
 
 export default function AthleteProfile() {
@@ -15,16 +16,33 @@ export default function AthleteProfile() {
 
   const isOwnProfile = user && user.username === username
 
-  useEffect(() => {
-    setLoading(true)
-    setError(null)
-    fetch(`/api/athletes/${encodeURIComponent(username)}`, { headers: authHeaders() })
+  function fetchProfile() {
+    return fetch(`/api/athletes/${encodeURIComponent(username)}`, { headers: authHeaders() })
       .then((res) => {
         if (!res.ok) throw new Error(res.status === 404 ? 'Athlete not found' : 'Failed to load profile')
         return res.json()
       })
+  }
+
+  function refreshProfile() {
+    fetchProfile()
+      .then((data) => setProfile(data))
+      .catch(() => {})
+  }
+
+  useEffect(() => {
+    setLoading(true)
+    setError(null)
+    fetchProfile()
       .then((data) => { setProfile(data); setLoading(false) })
       .catch((err) => { setError(err.message); setLoading(false) })
+    // Clean up ?garmin=connected query param
+    const params = new URLSearchParams(window.location.search)
+    if (params.has('garmin')) {
+      params.delete('garmin')
+      const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '')
+      window.history.replaceState({}, '', newUrl)
+    }
   }, [username])
 
   useEffect(() => {
@@ -151,6 +169,14 @@ export default function AthleteProfile() {
             />
           )}
         </div>
+      )}
+
+      {/* Garmin Connect — own profile only */}
+      {isOwnProfile && (
+        <GarminConnect
+          connected={!!profile.garmin_connected}
+          onSync={refreshProfile}
+        />
       )}
 
       {/* Recent sessions */}

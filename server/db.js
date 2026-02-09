@@ -48,6 +48,20 @@ if (!columns.some(c => c.name === 'user_id')) {
   db.exec('ALTER TABLE sessions ADD COLUMN user_id INTEGER REFERENCES users(id)')
 }
 
+// Migration: Garmin OAuth columns on users
+const userColumns = db.pragma('table_info(users)')
+if (!userColumns.some(c => c.name === 'garmin_access_token')) {
+  db.exec('ALTER TABLE users ADD COLUMN garmin_access_token TEXT')
+  db.exec('ALTER TABLE users ADD COLUMN garmin_refresh_token TEXT')
+  db.exec('ALTER TABLE users ADD COLUMN garmin_token_expires_at TEXT')
+  db.exec('ALTER TABLE users ADD COLUMN garmin_user_id TEXT')
+}
+
+// Migration: Garmin activity tracking on sessions
+if (!columns.some(c => c.name === 'garmin_activity_id')) {
+  db.exec('ALTER TABLE sessions ADD COLUMN garmin_activity_id TEXT')
+}
+
 // Create follows table
 db.exec(`
   CREATE TABLE IF NOT EXISTS follows (
@@ -91,11 +105,40 @@ db.exec(`
   )
 `)
 
+// Create notifications table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    actor_id INTEGER NOT NULL REFERENCES users(id),
+    type TEXT NOT NULL,
+    session_id INTEGER REFERENCES sessions(id) ON DELETE CASCADE,
+    comment_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,
+    is_read INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  )
+`)
+
+// Create spot_reviews table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS spot_reviews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    spot_id TEXT NOT NULL,
+    rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+    body TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  )
+`)
+
 // Indexes for social tables
 db.exec(`CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following_id)`)
 db.exec(`CREATE INDEX IF NOT EXISTS idx_kudos_session ON kudos(session_id)`)
 db.exec(`CREATE INDEX IF NOT EXISTS idx_comments_session ON comments(session_id)`)
 db.exec(`CREATE INDEX IF NOT EXISTS idx_session_photos_session ON session_photos(session_id)`)
+db.exec(`CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at DESC)`)
+db.exec(`CREATE INDEX IF NOT EXISTS idx_spot_reviews_spot ON spot_reviews(spot_id, created_at DESC)`)
+db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_garmin_activity ON sessions(garmin_activity_id)`)
 
 // --- User prepared statements ---
 
@@ -408,6 +451,93 @@ export const searchAthletes = db.prepare(`
 export const getFollowStatusBulk = db.prepare(`
   SELECT following_id FROM follows
   WHERE follower_id = ? AND following_id IN (SELECT value FROM json_each(?))
+`)
+
+// --- Notification prepared statements ---
+
+export const insertNotification = db.prepare(`
+  INSERT INTO notifications (user_id, actor_id, type, session_id, comment_id) VALUES (?, ?, ?, ?, ?)
+`)
+
+export const getUnreadCount = db.prepare(`
+  SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0
+`)
+
+export const getNotifications = db.prepare(`
+  SELECT n.*, u.username as actor_username, s.spot_name
+  FROM notifications n
+  JOIN users u ON n.actor_id = u.id
+  LEFT JOIN sessions s ON n.session_id = s.id
+  WHERE n.user_id = ?
+  ORDER BY n.created_at DESC
+  LIMIT 50
+`)
+
+export const markRead = db.prepare(`
+  UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?
+`)
+
+export const markAllRead = db.prepare(`
+  UPDATE notifications SET is_read = 1 WHERE user_id = ?
+`)
+
+export const deleteNotificationOnUnkudos = db.prepare(`
+  DELETE FROM notifications WHERE actor_id = ? AND type = 'kudos' AND session_id = ?
+`)
+
+// --- Spot Review prepared statements ---
+
+export const insertSpotReview = db.prepare(`
+  INSERT INTO spot_reviews (user_id, spot_id, rating, body) VALUES (?, ?, ?, ?)
+`)
+
+export const getSpotReviewsBySpot = db.prepare(`
+  SELECT r.id, r.rating, r.body, r.created_at, r.user_id, u.username
+  FROM spot_reviews r JOIN users u ON r.user_id = u.id
+  WHERE r.spot_id = ?
+  ORDER BY r.created_at DESC
+  LIMIT 50
+`)
+
+export const deleteSpotReview = db.prepare(`
+  DELETE FROM spot_reviews WHERE id = ? AND user_id = ?
+`)
+
+export const getSpotAverageRating = db.prepare(`
+  SELECT AVG(rating) as avg_rating, COUNT(*) as review_count FROM spot_reviews WHERE spot_id = ?
+`)
+
+// --- Garmin prepared statements ---
+
+export const updateGarminTokens = db.prepare(`
+  UPDATE users SET garmin_access_token = @garmin_access_token, garmin_refresh_token = @garmin_refresh_token,
+    garmin_token_expires_at = @garmin_token_expires_at, garmin_user_id = @garmin_user_id WHERE id = @id
+`)
+
+export const clearGarminTokens = db.prepare(`
+  UPDATE users SET garmin_access_token = NULL, garmin_refresh_token = NULL,
+    garmin_token_expires_at = NULL, garmin_user_id = NULL WHERE id = ?
+`)
+
+export const getUserByGarminId = db.prepare(`
+  SELECT id, username, email, created_at FROM users WHERE garmin_user_id = ?
+`)
+
+export const getGarminTokens = db.prepare(`
+  SELECT garmin_access_token, garmin_refresh_token, garmin_token_expires_at, garmin_user_id FROM users WHERE id = ?
+`)
+
+export const getSessionByGarminActivity = db.prepare(`
+  SELECT id FROM sessions WHERE garmin_activity_id = ?
+`)
+
+export const getUserGarminStatus = db.prepare(`
+  SELECT garmin_user_id, garmin_token_expires_at FROM users WHERE id = ?
+`)
+
+export const insertGarminSession = db.prepare(`
+  INSERT INTO sessions (spot_id, spot_name, date, start_time, duration, wave_count, board, notes, rating, conditions, user_id, garmin_activity_id)
+  VALUES (@spot_id, @spot_name, @date, @start_time, @duration, @wave_count, @board, @notes, @rating, @conditions, @user_id, @garmin_activity_id)
 `)
 
 export default db

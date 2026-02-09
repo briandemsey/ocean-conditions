@@ -84,7 +84,14 @@ export default function SessionCard({ session, onDelete, showUser = false }) {
           >
             {session.spot_name}
           </Link>
-          <p className="text-sm text-white/60">{dateStr}{session.start_time ? ` at ${formatStartTime(session.start_time)}` : ''}</p>
+          <p className="text-sm text-white/60">
+            {dateStr}{session.start_time ? ` at ${formatStartTime(session.start_time)}` : ''}
+            {session.garmin_activity_id && (
+              <span className="ml-2 inline-block px-1.5 py-0.5 bg-[#007DC3]/20 border border-[#007DC3]/30 rounded text-[10px] text-[#7eb8e0] leading-none align-middle">
+                Garmin
+              </span>
+            )}
+          </p>
         </div>
         {rating && (
           <span

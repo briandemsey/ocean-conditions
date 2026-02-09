@@ -10,6 +10,10 @@ import bcrypt from 'bcryptjs'
 import multer from 'multer'
 import { signToken, extractUser, requireAuth } from './auth.js'
 import {
+  isGarminConfigured, generatePKCE, buildAuthUrl, exchangeCode,
+  refreshAccessToken, fetchActivities, findNearestSpot, activityToSession, revokeToken,
+} from './garmin.js'
+import {
   insertUser, getUserByEmail, getUserById, getUserByUsername,
   insertSession, getSessionById,
   getSessionsByUser, getSessionsByUserAndSpot, getAllSessionsPublic,
@@ -26,6 +30,10 @@ import {
   insertComment, deleteComment, getCommentById, getCommentsBySession, getCommentCountForSessions, getCommentCountBySession,
   insertPhoto, getPhotosBySession, getPhotoById, deletePhotoById, getPhotoCountBySession, getPhotosForSessions,
   searchAthletes, getFollowStatusBulk,
+  insertNotification, getUnreadCount, getNotifications, markRead, markAllRead, deleteNotificationOnUnkudos,
+  insertSpotReview, getSpotReviewsBySpot, deleteSpotReview, getSpotAverageRating,
+  updateGarminTokens, clearGarminTokens, getUserByGarminId, getGarminTokens,
+  getSessionByGarminActivity, getUserGarminStatus, insertGarminSession,
 } from './db.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -148,6 +156,47 @@ app.get('/api/spots/:id', (req, res) => {
   const spot = spots.find((s) => s.id === req.params.id)
   if (!spot) return res.status(404).json({ error: 'Spot not found' })
   res.json(spot)
+})
+
+// --- Spot Review Routes ---
+
+// GET /api/spots/:spotId/reviews — public, get reviews for a spot
+app.get('/api/spots/:spotId/reviews', (req, res) => {
+  const reviews = getSpotReviewsBySpot.all(req.params.spotId)
+  const stats = getSpotAverageRating.get(req.params.spotId)
+  res.json({
+    reviews,
+    avg_rating: stats.avg_rating ? Math.round(stats.avg_rating * 10) / 10 : null,
+    review_count: stats.review_count,
+  })
+})
+
+// POST /api/spots/:spotId/reviews — auth required, create a review
+app.post('/api/spots/:spotId/reviews', requireAuth, (req, res) => {
+  const { rating, body } = req.body
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return res.status(400).json({ error: 'Rating must be an integer from 1 to 5' })
+  }
+  if (!body || typeof body !== 'string' || body.trim().length === 0 || body.length > 500) {
+    return res.status(400).json({ error: 'Review body must be 1-500 characters' })
+  }
+  insertSpotReview.run(req.user.id, req.params.spotId, rating, body.trim())
+  const reviews = getSpotReviewsBySpot.all(req.params.spotId)
+  const stats = getSpotAverageRating.get(req.params.spotId)
+  res.status(201).json({
+    reviews,
+    avg_rating: stats.avg_rating ? Math.round(stats.avg_rating * 10) / 10 : null,
+    review_count: stats.review_count,
+  })
+})
+
+// DELETE /api/reviews/:id — auth required, owner only
+app.delete('/api/reviews/:id', requireAuth, (req, res) => {
+  const result = deleteSpotReview.run(req.params.id, req.user.id)
+  if (result.changes === 0) {
+    return res.status(404).json({ error: 'Review not found or not yours' })
+  }
+  res.json({ success: true })
 })
 
 // GET /api/conditions/:spotId — current conditions
@@ -347,6 +396,188 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
   res.json({ id: user.id, username: user.username, email: user.email })
 })
 
+// --- Garmin PKCE state store (in-memory, 10-min TTL) ---
+const pkceStore = new Map()
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, val] of pkceStore) {
+    if (val.expiresAt < now) pkceStore.delete(key)
+  }
+}, 60_000)
+
+// --- Garmin Routes ---
+
+// GET /api/auth/garmin — start Garmin OAuth flow
+app.get('/api/auth/garmin', requireAuth, (req, res) => {
+  if (!isGarminConfigured()) {
+    return res.status(503).json({ error: 'Garmin integration is not configured. GARMIN_CLIENT_ID and GARMIN_CLIENT_SECRET must be set.' })
+  }
+  const state = crypto.randomBytes(16).toString('hex')
+  const { verifier, challenge } = generatePKCE()
+  const redirectUri = `${req.protocol}://${req.get('host')}/api/auth/garmin/callback`
+  pkceStore.set(state, { verifier, userId: req.user.id, expiresAt: Date.now() + 10 * 60 * 1000 })
+  const url = buildAuthUrl(state, challenge, redirectUri)
+  res.json({ url })
+})
+
+// GET /api/auth/garmin/callback — exchange code for tokens
+app.get('/api/auth/garmin/callback', async (req, res) => {
+  const { code, state } = req.query
+  if (!code || !state) return res.status(400).send('Missing code or state')
+  const pkce = pkceStore.get(state)
+  if (!pkce) return res.status(400).send('Invalid or expired state')
+  pkceStore.delete(state)
+
+  try {
+    const redirectUri = `${req.protocol}://${req.get('host')}/api/auth/garmin/callback`
+    const tokens = await exchangeCode(code, pkce.verifier, redirectUri)
+    const expiresAt = new Date(Date.now() + (tokens.expires_in || 7776000) * 1000).toISOString()
+    updateGarminTokens.run({
+      garmin_access_token: tokens.access_token,
+      garmin_refresh_token: tokens.refresh_token,
+      garmin_token_expires_at: expiresAt,
+      garmin_user_id: tokens.user_id || null,
+      id: pkce.userId,
+    })
+    const user = getUserById.get(pkce.userId)
+    res.redirect(`/athlete/${user.username}?garmin=connected`)
+  } catch (err) {
+    console.error('Garmin callback error:', err.message)
+    res.status(500).send('Failed to connect Garmin account')
+  }
+})
+
+// POST /api/auth/garmin/disconnect — revoke and clear Garmin tokens
+app.post('/api/auth/garmin/disconnect', requireAuth, async (req, res) => {
+  const tokens = getGarminTokens.get(req.user.id)
+  if (tokens?.garmin_access_token) {
+    await revokeToken(tokens.garmin_access_token)
+  }
+  clearGarminTokens.run(req.user.id)
+  res.json({ success: true })
+})
+
+// GET /api/garmin/status — check Garmin connection status
+app.get('/api/garmin/status', requireAuth, (req, res) => {
+  const row = getUserGarminStatus.get(req.user.id)
+  res.json({
+    connected: !!row?.garmin_user_id,
+    garmin_user_id: row?.garmin_user_id || null,
+    expires_at: row?.garmin_token_expires_at || null,
+  })
+})
+
+// POST /api/garmin/sync — manual sync of last 30 days
+app.post('/api/garmin/sync', requireAuth, async (req, res) => {
+  if (!isGarminConfigured()) {
+    return res.status(503).json({ error: 'Garmin integration is not configured' })
+  }
+  const tokens = getGarminTokens.get(req.user.id)
+  if (!tokens?.garmin_access_token) {
+    return res.status(400).json({ error: 'Garmin account not connected' })
+  }
+
+  try {
+    let accessToken = tokens.garmin_access_token
+    // Refresh if expired
+    if (tokens.garmin_token_expires_at && new Date(tokens.garmin_token_expires_at) < new Date()) {
+      const refreshed = await refreshAccessToken(tokens.garmin_refresh_token)
+      accessToken = refreshed.access_token
+      const expiresAt = new Date(Date.now() + (refreshed.expires_in || 7776000) * 1000).toISOString()
+      updateGarminTokens.run({
+        garmin_access_token: refreshed.access_token,
+        garmin_refresh_token: refreshed.refresh_token || tokens.garmin_refresh_token,
+        garmin_token_expires_at: expiresAt,
+        garmin_user_id: tokens.garmin_user_id,
+        id: req.user.id,
+      })
+    }
+
+    const endEpoch = Date.now()
+    const startEpoch = endEpoch - 30 * 24 * 60 * 60 * 1000
+    const activities = await fetchActivities(accessToken, startEpoch, endEpoch)
+
+    // Filter for surfing activities (Garmin activity type 38)
+    const surfActivities = (activities || []).filter(a => a.activityType === 38 || a.activityType === 'SURFING')
+
+    let synced = 0
+    let skipped = 0
+    const errors = []
+
+    for (const activity of surfActivities) {
+      const activityId = String(activity.activityId)
+      // Skip duplicates
+      if (getSessionByGarminActivity.get(activityId)) {
+        skipped++
+        continue
+      }
+
+      // Match to nearest spot using GPS coordinates
+      const lat = activity.startLatitudeInDegree || activity.startLatitude
+      const lng = activity.startLongitudeInDegree || activity.startLongitude
+      if (lat == null || lng == null) {
+        errors.push(`Activity ${activityId}: no GPS coordinates`)
+        continue
+      }
+
+      const spot = findNearestSpot(lat, lng, spots)
+      if (!spot) {
+        errors.push(`Activity ${activityId}: no spot within 10km`)
+        continue
+      }
+
+      const session = activityToSession(activity, spot)
+      session.user_id = req.user.id
+      insertGarminSession.run(session)
+      synced++
+    }
+
+    res.json({ synced, skipped, errors })
+  } catch (err) {
+    console.error('Garmin sync error:', err.message)
+    res.status(500).json({ error: 'Sync failed: ' + err.message })
+  }
+})
+
+// POST /api/garmin/webhook — receive Garmin activity notifications
+app.post('/api/garmin/webhook', express.json(), async (req, res) => {
+  // Acknowledge immediately
+  res.status(200).json({ ok: true })
+
+  // Process async
+  try {
+    const activities = req.body.activities || req.body.activityDetails || []
+    for (const activity of activities) {
+      if (activity.activityType !== 38 && activity.activityType !== 'SURFING') continue
+
+      const garminUserId = String(activity.userId || activity.userAccessToken)
+      const user = getUserByGarminId.get(garminUserId)
+      if (!user) continue
+
+      const activityId = String(activity.activityId)
+      if (getSessionByGarminActivity.get(activityId)) continue
+
+      const lat = activity.startLatitudeInDegree || activity.startLatitude
+      const lng = activity.startLongitudeInDegree || activity.startLongitude
+      if (lat == null || lng == null) continue
+
+      const spot = findNearestSpot(lat, lng, spots)
+      if (!spot) continue
+
+      const session = activityToSession(activity, spot)
+      session.user_id = user.id
+      insertGarminSession.run(session)
+    }
+  } catch (err) {
+    console.error('Garmin webhook processing error:', err.message)
+  }
+})
+
+// GET /api/garmin/webhook — Garmin verification endpoint
+app.get('/api/garmin/webhook', (req, res) => {
+  res.status(200).send('OK')
+})
+
 // --- Session Routes ---
 
 // GET /api/sessions/stats — user's stats (must be before :id route)
@@ -432,11 +663,19 @@ app.get('/api/athletes/:username', (req, res) => {
     username: s.username || user.username,
   }))
 
-  res.json({
+  const profileData = {
     user: { username: user.username, created_at: user.created_at, followers, following },
     stats: { ...stats, topSpot, topBoard },
     sessions: enrichSessions(sessions, req.user?.id),
-  })
+  }
+
+  // Include Garmin status when viewer is the profile owner
+  if (req.user && req.user.id === user.id) {
+    const garminStatus = getUserGarminStatus.get(user.id)
+    profileData.garmin_connected = !!garminStatus?.garmin_user_id
+  }
+
+  res.json(profileData)
 })
 
 // --- Leaderboard Routes (public) ---
@@ -535,6 +774,7 @@ app.post('/api/follows/:username', requireAuth, (req, res) => {
   if (!target) return res.status(404).json({ error: 'User not found' })
   if (target.id === req.user.id) return res.status(400).json({ error: 'Cannot follow yourself' })
   insertFollow.run(req.user.id, target.id)
+  insertNotification.run(target.id, req.user.id, 'follow', null, null)
   res.json({ following: true })
 })
 
@@ -554,6 +794,38 @@ app.get('/api/follows/:username/status', requireAuth, (req, res) => {
   res.json({ following: !!row })
 })
 
+// --- Notification Routes ---
+
+// GET /api/notifications/unread-count — get unread notification count
+app.get('/api/notifications/unread-count', requireAuth, (req, res) => {
+  const { count } = getUnreadCount.get(req.user.id)
+  res.json({ count })
+})
+
+// GET /api/notifications — get recent notifications
+app.get('/api/notifications', requireAuth, (req, res) => {
+  const notifications = getNotifications.all(req.user.id)
+  res.json(notifications)
+})
+
+// PUT /api/notifications/read-all — mark all notifications as read
+app.put('/api/notifications/read-all', requireAuth, (req, res) => {
+  markAllRead.run(req.user.id)
+  res.json({ success: true })
+})
+
+// PUT /api/notifications/:id/read — mark one notification as read
+app.put('/api/notifications/:id/read', requireAuth, (req, res) => {
+  markRead.run(req.params.id, req.user.id)
+  res.json({ success: true })
+})
+
+// DELETE /api/notifications/:id — delete a notification
+app.delete('/api/notifications/:id', requireAuth, (req, res) => {
+  markRead.run(req.params.id, req.user.id)
+  res.json({ success: true })
+})
+
 // --- Kudos Routes ---
 
 // POST /api/sessions/:id/kudos — give kudos to a session
@@ -561,6 +833,9 @@ app.post('/api/sessions/:id/kudos', requireAuth, (req, res) => {
   const session = getSessionById.get(req.params.id)
   if (!session) return res.status(404).json({ error: 'Session not found' })
   insertKudos.run(req.user.id, session.id)
+  if (session.user_id && session.user_id !== req.user.id) {
+    insertNotification.run(session.user_id, req.user.id, 'kudos', session.id, null)
+  }
   const count = getKudosCount.get(session.id).count
   res.json({ kudos: true, count })
 })
@@ -570,6 +845,7 @@ app.delete('/api/sessions/:id/kudos', requireAuth, (req, res) => {
   const session = getSessionById.get(req.params.id)
   if (!session) return res.status(404).json({ error: 'Session not found' })
   deleteKudos.run(req.user.id, session.id)
+  deleteNotificationOnUnkudos.run(req.user.id, session.id)
   const count = getKudosCount.get(session.id).count
   res.json({ kudos: false, count })
 })
@@ -662,6 +938,9 @@ app.post('/api/sessions/:id/comments', requireAuth, (req, res) => {
   }
   const result = insertComment.run(req.user.id, session.id, body.trim())
   const comment = getCommentById.get(result.lastInsertRowid)
+  if (session.user_id && session.user_id !== req.user.id) {
+    insertNotification.run(session.user_id, req.user.id, 'comment', session.id, comment.id)
+  }
   res.status(201).json(comment)
 })
 
