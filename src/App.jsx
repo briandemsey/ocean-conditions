@@ -18,6 +18,7 @@ import Leaderboards from './pages/Leaderboards'
 import AthleteSearch from './pages/AthleteSearch'
 import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
+import SurfAlerts from './pages/SurfAlerts'
 
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr + 'Z').getTime()
@@ -123,7 +124,9 @@ export default function App() {
       setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, is_read: 1 } : x))
     }
     setNotifOpen(false)
-    if (n.type === 'follow') {
+    if (n.type === 'surf_alert' && n.spot_id) {
+      navigate(`/spot/${n.spot_id}`)
+    } else if (n.type === 'follow') {
       navigate(`/athlete/${n.actor_username}`)
     } else if (n.session_id) {
       navigate(`/sessions`)
@@ -131,6 +134,7 @@ export default function App() {
   }
 
   function notifText(n) {
+    if (n.type === 'surf_alert') return `Conditions match at ${n.alert_spot_name || 'a spot'}!`
     if (n.type === 'kudos') return `gave kudos on your session${n.spot_name ? ` at ${n.spot_name}` : ''}`
     if (n.type === 'comment') return `commented on your session${n.spot_name ? ` at ${n.spot_name}` : ''}`
     if (n.type === 'follow') return 'started following you'
@@ -157,8 +161,11 @@ export default function App() {
             {!n.is_read && <span className="mt-1.5 w-2 h-2 rounded-full bg-[#4a9eed] flex-shrink-0" />}
             <div className={!n.is_read ? '' : 'ml-4'}>
               <p className="text-sm text-white/90">
-                <span className="font-medium text-[#c084fc]">{n.actor_username}</span>{' '}
-                {notifText(n)}
+                {n.type === 'surf_alert' ? (
+                  notifText(n)
+                ) : (
+                  <><span className="font-medium text-[#c084fc]">{n.actor_username}</span>{' '}{notifText(n)}</>
+                )}
               </p>
               <p className="text-xs text-white/40 mt-0.5">{timeAgo(n.created_at)}</p>
             </div>
@@ -217,6 +224,7 @@ export default function App() {
                 <>
                   <Link to="/sessions" className="text-sm text-white/60 hover:text-[#4a9eed] transition-colors" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>My Sessions</Link>
                   <Link to="/sessions/log" className="text-sm text-white/60 hover:text-[#4a9eed] transition-colors" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>Log Session</Link>
+                  <Link to="/alerts" className="text-sm text-white/60 hover:text-[#4a9eed] transition-colors" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>Alerts</Link>
                   <Link to="/" className="text-sm text-white/60 hover:text-[#4a9eed] transition-colors" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>Spot Reviews</Link>
                   <Link to={`/athlete/${user.username}`} className="text-sm text-[#c084fc] hover:text-[#d4a5ff] transition-colors" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>{user.username}</Link>
                   <button onClick={logout} className="text-sm text-white/40 hover:text-red-400 transition-colors" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>Logout</button>
@@ -271,6 +279,7 @@ export default function App() {
                 <>
                   <Link to="/sessions" className="text-sm text-white/60 hover:text-[#4a9eed] transition-colors py-1" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>My Sessions</Link>
                   <Link to="/sessions/log" className="text-sm text-white/60 hover:text-[#4a9eed] transition-colors py-1" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>Log Session</Link>
+                  <Link to="/alerts" className="text-sm text-white/60 hover:text-[#4a9eed] transition-colors py-1" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>Alerts</Link>
                   <Link to="/" className="text-sm text-white/60 hover:text-[#4a9eed] transition-colors py-1" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>Spot Reviews</Link>
                   <Link to={`/athlete/${user.username}`} className="text-sm text-[#c084fc] hover:text-[#d4a5ff] transition-colors py-1" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>{user.username}</Link>
                   <button onClick={logout} className="text-sm text-white/40 hover:text-red-400 transition-colors py-1 text-left" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>Logout</button>
@@ -302,6 +311,7 @@ export default function App() {
             <Route path="/athletes" element={<AthleteSearch />} />
             <Route path="/athlete/:username" element={<AthleteProfile />} />
             <Route path="/leaderboards" element={<Leaderboards />} />
+            <Route path="/alerts" element={<SurfAlerts />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
           </Routes>

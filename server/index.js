@@ -13,6 +13,7 @@ import {
   isGarminConfigured, generatePKCE, buildAuthUrl, exchangeCode,
   refreshAccessToken, fetchActivities, findNearestSpot, activityToSession, revokeToken,
 } from './garmin.js'
+import { fetchBuoyData, fetchBuoyHistory } from './buoy.js'
 import {
   insertUser, getUserByEmail, getUserById, getUserByUsername,
   insertSession, getSessionById,
@@ -34,6 +35,8 @@ import {
   insertSpotReview, getSpotReviewsBySpot, deleteSpotReview, getSpotAverageRating,
   updateGarminTokens, clearGarminTokens, getUserByGarminId, getGarminTokens,
   getSessionByGarminActivity, getUserGarminStatus, insertGarminSession,
+  insertSurfAlert, getSurfAlertsByUser, deleteSurfAlert, toggleSurfAlert,
+  getActiveSurfAlerts, updateAlertTriggered, insertSurfAlertNotification,
 } from './db.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -102,15 +105,17 @@ async function fetchStormGlass(endpoint, params) {
 }
 
 // --- Helper: fetch from Open-Meteo (free fallback) ---
-async function fetchOpenMeteoMarine(lat, lng, days = 7) {
-  const url = `https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=wave_height,wave_direction,wave_period,swell_wave_height,swell_wave_direction,swell_wave_period&forecast_days=${days}`
+async function fetchOpenMeteoMarine(lat, lng, days = 7, pastHours = 0) {
+  let url = `https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=wave_height,wave_direction,wave_period,swell_wave_height,swell_wave_direction,swell_wave_period&forecast_days=${days}`
+  if (pastHours > 0) url += `&past_hours=${pastHours}`
   const res = await fetch(url)
   if (!res.ok) throw new Error(`Open-Meteo Marine ${res.status}`)
   return res.json()
 }
 
-async function fetchOpenMeteoWeather(lat, lng, days = 7) {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,relative_humidity_2m,cloud_cover&current=temperature_2m,wind_speed_10m,wind_direction_10m&forecast_days=${days}`
+async function fetchOpenMeteoWeather(lat, lng, days = 7, pastHours = 0) {
+  let url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,relative_humidity_2m,cloud_cover&current=temperature_2m,wind_speed_10m,wind_direction_10m&forecast_days=${days}`
+  if (pastHours > 0) url += `&past_hours=${pastHours}`
   const res = await fetch(url)
   if (!res.ok) throw new Error(`Open-Meteo Weather ${res.status}`)
   return res.json()
@@ -199,42 +204,80 @@ app.delete('/api/reviews/:id', requireAuth, (req, res) => {
   res.json({ success: true })
 })
 
+// GET /api/buoy/:stationId — latest buoy reading
+app.get('/api/buoy/:stationId', async (req, res) => {
+  try {
+    const data = await fetchBuoyData(req.params.stationId)
+    res.json({ stationId: req.params.stationId, ...data })
+  } catch (err) {
+    console.error('Buoy error:', err.message)
+    res.status(502).json({ error: 'Buoy data unavailable', detail: err.message })
+  }
+})
+
+// GET /api/buoy/:stationId/history — last 24h of buoy readings
+app.get('/api/buoy/:stationId/history', async (req, res) => {
+  try {
+    const readings = await fetchBuoyHistory(req.params.stationId)
+    res.json({ stationId: req.params.stationId, readings })
+  } catch (err) {
+    console.error('Buoy history error:', err.message)
+    res.status(502).json({ error: 'Buoy history unavailable', detail: err.message })
+  }
+})
+
 // GET /api/conditions/:spotId — current conditions
 app.get('/api/conditions/:spotId', async (req, res) => {
   const spot = spots.find((s) => s.id === req.params.spotId)
   if (!spot) return res.status(404).json({ error: 'Spot not found' })
 
+  // Fetch buoy data in parallel (non-blocking)
+  const buoyPromise = spot.buoyId
+    ? fetchBuoyData(spot.buoyId).catch(() => null)
+    : Promise.resolve(null)
+
   try {
     if (API_KEY) {
       const now = new Date().toISOString()
       const end = new Date(Date.now() + 3600000).toISOString()
-      const data = await fetchStormGlass('/weather/point', {
-        lat: spot.lat,
-        lng: spot.lng,
-        params:
-          'waveHeight,wavePeriod,waveDirection,swellHeight,swellPeriod,swellDirection,secondarySwellHeight,secondarySwellPeriod,windSpeed,windDirection,gust,airTemperature,waterTemperature',
-        source: 'sg,noaa,dwd,meteo,meto',
-        start: now,
-        end: end,
-      })
-      return res.json({ source: 'stormglass', spot, data })
+      const [data, buoy] = await Promise.all([
+        fetchStormGlass('/weather/point', {
+          lat: spot.lat,
+          lng: spot.lng,
+          params:
+            'waveHeight,wavePeriod,waveDirection,swellHeight,swellPeriod,swellDirection,secondarySwellHeight,secondarySwellPeriod,windSpeed,windDirection,gust,airTemperature,waterTemperature',
+          source: 'sg,noaa,dwd,meteo,meto',
+          start: now,
+          end: end,
+        }),
+        buoyPromise,
+      ])
+      const result = { source: 'stormglass', spot, data }
+      if (buoy) result.buoy = { stationId: spot.buoyId, ...buoy }
+      return res.json(result)
     }
 
     // Fallback to Open-Meteo
-    const [marine, weather] = await Promise.all([
+    const [marine, weather, buoy] = await Promise.all([
       fetchOpenMeteoMarine(spot.lat, spot.lng, 1),
       fetchOpenMeteoWeather(spot.lat, spot.lng, 1),
+      buoyPromise,
     ])
-    res.json({ source: 'open-meteo', spot, marine, weather })
+    const result = { source: 'open-meteo', spot, marine, weather }
+    if (buoy) result.buoy = { stationId: spot.buoyId, ...buoy }
+    res.json(result)
   } catch (err) {
     console.error('Conditions error:', err.message)
     // Try Open-Meteo fallback
     try {
-      const [marine, weather] = await Promise.all([
+      const [marine, weather, buoy] = await Promise.all([
         fetchOpenMeteoMarine(spot.lat, spot.lng, 1),
         fetchOpenMeteoWeather(spot.lat, spot.lng, 1),
+        buoyPromise,
       ])
-      res.json({ source: 'open-meteo-fallback', spot, marine, weather })
+      const result = { source: 'open-meteo-fallback', spot, marine, weather }
+      if (buoy) result.buoy = { stationId: spot.buoyId, ...buoy }
+      res.json(result)
     } catch (fallbackErr) {
       res.status(502).json({ error: 'All data sources failed', detail: err.message })
     }
@@ -312,22 +355,66 @@ app.get('/api/compare/:spotId', async (req, res) => {
   const spot = spots.find((s) => s.id === req.params.spotId)
   if (!spot) return res.status(404).json({ error: 'Spot not found' })
 
+  // Always fetch buoy + Open-Meteo in parallel
+  const buoyPromise = spot.buoyId
+    ? fetchBuoyHistory(spot.buoyId).catch(() => null)
+    : Promise.resolve(null)
+  const buoyLatestPromise = spot.buoyId
+    ? fetchBuoyData(spot.buoyId).catch(() => null)
+    : Promise.resolve(null)
+  const openMeteoPromise = Promise.all([
+    fetchOpenMeteoMarine(spot.lat, spot.lng, 2, 24),
+    fetchOpenMeteoWeather(spot.lat, spot.lng, 2, 24),
+  ]).catch(() => null)
+
   try {
     if (API_KEY) {
       const start = new Date().toISOString()
       const end = new Date(Date.now() + 3 * 86400000).toISOString()
-      const data = await fetchStormGlass('/weather/point', {
-        lat: spot.lat,
-        lng: spot.lng,
-        params: 'waveHeight,swellHeight,windSpeed',
-        source: 'sg,noaa,dwd,meteo,meto',
-        start,
-        end,
-      })
-      return res.json({ source: 'stormglass', spot, data })
+      try {
+        const [data, buoyHistory, buoyLatest, openMeteoResult] = await Promise.all([
+          fetchStormGlass('/weather/point', {
+            lat: spot.lat,
+            lng: spot.lng,
+            params: 'waveHeight,swellHeight,windSpeed',
+            source: 'sg,noaa,dwd,meteo,meto',
+            start,
+            end,
+          }),
+          buoyPromise,
+          buoyLatestPromise,
+          openMeteoPromise,
+        ])
+        const result = { source: 'stormglass', spot, data }
+        if (buoyLatest || buoyHistory) {
+          result.buoy = { stationId: spot.buoyId, latest: buoyLatest, history: buoyHistory || [] }
+        }
+        if (openMeteoResult) {
+          result.openMeteo = { marine: openMeteoResult[0], weather: openMeteoResult[1] }
+        }
+        return res.json(result)
+      } catch (sgErr) {
+        console.error('Compare StormGlass failed, falling back:', sgErr.message)
+        // Fall through to free-tier path below
+      }
     }
 
-    res.json({ source: 'none', spot, message: 'Multi-source comparison requires StormGlass API key' })
+    // Free tier (or StormGlass fallback): Open-Meteo + buoy comparison
+    const [buoyHistory, buoyLatest, openMeteoResult] = await Promise.all([
+      buoyPromise, buoyLatestPromise, openMeteoPromise,
+    ])
+    const result = { source: 'free', spot }
+    if (openMeteoResult) {
+      result.openMeteo = { marine: openMeteoResult[0], weather: openMeteoResult[1] }
+    }
+    if (buoyLatest || buoyHistory) {
+      result.buoy = { stationId: spot.buoyId, latest: buoyLatest, history: buoyHistory || [] }
+    }
+    // Only return 'none' if both Open-Meteo and buoy failed
+    if (!openMeteoResult && !buoyLatest) {
+      return res.json({ source: 'none', spot, message: 'No data sources available' })
+    }
+    res.json(result)
   } catch (err) {
     console.error('Compare error:', err.message)
     res.status(502).json({ error: 'Comparison data unavailable', detail: err.message })
@@ -954,6 +1041,157 @@ app.delete('/api/comments/:id', requireAuth, (req, res) => {
   deleteComment.run(comment.id, req.user.id)
   res.json({ success: true })
 })
+
+// --- Surf Alert Routes ---
+
+// GET /api/alerts — list user's alerts
+app.get('/api/alerts', requireAuth, (req, res) => {
+  const alerts = getSurfAlertsByUser.all(req.user.id)
+  res.json(alerts)
+})
+
+// POST /api/alerts — create an alert
+app.post('/api/alerts', requireAuth, (req, res) => {
+  const { spot_id, spot_name, min_wave_height, max_wind_speed, min_rating } = req.body
+  if (!spot_id || !spot_name) {
+    return res.status(400).json({ error: 'spot_id and spot_name are required' })
+  }
+  if (min_wave_height == null && max_wind_speed == null && min_rating == null) {
+    return res.status(400).json({ error: 'At least one criteria is required' })
+  }
+  const result = insertSurfAlert.run({
+    user_id: req.user.id,
+    spot_id,
+    spot_name,
+    min_wave_height: min_wave_height != null ? Number(min_wave_height) : null,
+    max_wind_speed: max_wind_speed != null ? Number(max_wind_speed) : null,
+    min_rating: min_rating != null ? Number(min_rating) : null,
+  })
+  const alerts = getSurfAlertsByUser.all(req.user.id)
+  res.status(201).json(alerts)
+})
+
+// PUT /api/alerts/:id/toggle — toggle alert active/inactive
+app.put('/api/alerts/:id/toggle', requireAuth, (req, res) => {
+  const result = toggleSurfAlert.run(req.params.id, req.user.id)
+  if (result.changes === 0) {
+    return res.status(404).json({ error: 'Alert not found' })
+  }
+  const alerts = getSurfAlertsByUser.all(req.user.id)
+  res.json(alerts)
+})
+
+// DELETE /api/alerts/:id — delete an alert
+app.delete('/api/alerts/:id', requireAuth, (req, res) => {
+  const result = deleteSurfAlert.run(req.params.id, req.user.id)
+  if (result.changes === 0) {
+    return res.status(404).json({ error: 'Alert not found' })
+  }
+  res.json({ success: true })
+})
+
+// --- Surf Alert Background Checker ---
+
+// Server-side rating calculation (mirrors src/utils/ratings.js)
+function calculateSurfRating(waveHeightFt, windSpeed, windDir, swellDir, swellPeriod) {
+  const THRESHOLDS = [
+    { level: 0, min: 0, max: 0.5 },
+    { level: 1, min: 0.5, max: 1 },
+    { level: 2, min: 1, max: 2 },
+    { level: 3, min: 2, max: 3 },
+    { level: 4, min: 3, max: 4 },
+    { level: 5, min: 4, max: 6 },
+    { level: 6, min: 6, max: Infinity },
+  ]
+  const base = THRESHOLDS.find(r => waveHeightFt >= r.min && waveHeightFt < r.max) || THRESHOLDS[0]
+  let level = base.level
+
+  if (windSpeed != null && windDir != null && swellDir != null) {
+    const angleDiff = Math.abs(((windDir - swellDir + 180) % 360) - 180)
+    if (angleDiff > 135 && windSpeed < 15) {
+      level = Math.min(6, level + 1)
+    } else if (angleDiff < 45 && windSpeed > 10) {
+      level = Math.max(0, level - 1)
+    }
+  }
+
+  if (swellPeriod != null && swellPeriod >= 12 && level > 0) {
+    level = Math.min(6, level + 1)
+  }
+
+  return level
+}
+
+async function checkSurfAlerts() {
+  try {
+    const alerts = getActiveSurfAlerts.all()
+    if (alerts.length === 0) return
+
+    // Group alerts by spot_id to avoid duplicate API calls
+    const bySpot = {}
+    for (const alert of alerts) {
+      if (!bySpot[alert.spot_id]) bySpot[alert.spot_id] = []
+      bySpot[alert.spot_id].push(alert)
+    }
+
+    for (const [spotId, spotAlerts] of Object.entries(bySpot)) {
+      const spot = spots.find(s => s.id === spotId)
+      if (!spot) continue
+
+      try {
+        const [marine, weather] = await Promise.all([
+          fetchOpenMeteoMarine(spot.lat, spot.lng, 1),
+          fetchOpenMeteoWeather(spot.lat, spot.lng, 1),
+        ])
+
+        // Extract current values
+        const now = new Date()
+        const hourIdx = marine?.hourly?.time?.findIndex(t => new Date(t) >= now) ?? 0
+        const idx = Math.max(0, hourIdx > 0 ? hourIdx - 1 : 0)
+
+        const waveHeightM = marine?.hourly?.wave_height?.[idx] ?? 0
+        const swellPeriod = marine?.hourly?.swell_wave_period?.[idx] ?? null
+        const swellDir = marine?.hourly?.swell_wave_direction?.[idx] ?? null
+        const windSpeedMs = weather?.hourly?.wind_speed_10m?.[idx] ?? 0
+        const windDir = weather?.hourly?.wind_direction_10m?.[idx] ?? null
+
+        // Convert to display units for rating
+        const waveHeightFt = waveHeightM * 3.28084
+        const windSpeedKnots = windSpeedMs * 1.94384
+        const rating = calculateSurfRating(waveHeightFt, windSpeedKnots, windDir, swellDir, swellPeriod)
+
+        for (const alert of spotAlerts) {
+          // Skip if triggered within last 6 hours
+          if (alert.last_triggered_at) {
+            const lastTriggered = new Date(alert.last_triggered_at + 'Z')
+            if (Date.now() - lastTriggered.getTime() < 6 * 60 * 60 * 1000) continue
+          }
+
+          // Check criteria (all specified criteria must match)
+          let match = true
+          if (alert.min_wave_height != null && waveHeightM < alert.min_wave_height) match = false
+          if (alert.max_wind_speed != null && windSpeedMs > alert.max_wind_speed) match = false
+          if (alert.min_rating != null && rating < alert.min_rating) match = false
+
+          if (match) {
+            insertSurfAlertNotification.run(alert.user_id, alert.user_id, alert.spot_id, alert.spot_name)
+            updateAlertTriggered.run(alert.id)
+            console.log(`Surf alert triggered for user ${alert.user_id} at ${alert.spot_name}`)
+          }
+        }
+      } catch (err) {
+        console.error(`Surf alert check failed for ${spotId}:`, err.message)
+      }
+    }
+  } catch (err) {
+    console.error('Surf alert checker error:', err.message)
+  }
+}
+
+// Run checker every 30 minutes
+setInterval(checkSurfAlerts, 30 * 60 * 1000)
+// Run once on startup after a short delay
+setTimeout(checkSurfAlerts, 10000)
 
 // Catch-all: serve index.html for client-side routing
 app.get('/{*path}', (req, res) => {

@@ -131,6 +131,29 @@ db.exec(`
   )
 `)
 
+// Create surf_alerts table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS surf_alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    spot_id TEXT NOT NULL,
+    spot_name TEXT NOT NULL,
+    min_wave_height REAL,
+    max_wind_speed REAL,
+    min_rating INTEGER,
+    is_active INTEGER DEFAULT 1,
+    last_triggered_at TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  )
+`)
+
+// Migration: add spot_id and alert_spot_name to notifications for surf_alert type
+const notifColumns = db.pragma('table_info(notifications)')
+if (!notifColumns.some(c => c.name === 'spot_id')) {
+  db.exec('ALTER TABLE notifications ADD COLUMN spot_id TEXT')
+  db.exec('ALTER TABLE notifications ADD COLUMN alert_spot_name TEXT')
+}
+
 // Indexes for social tables
 db.exec(`CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following_id)`)
 db.exec(`CREATE INDEX IF NOT EXISTS idx_kudos_session ON kudos(session_id)`)
@@ -538,6 +561,38 @@ export const getUserGarminStatus = db.prepare(`
 export const insertGarminSession = db.prepare(`
   INSERT INTO sessions (spot_id, spot_name, date, start_time, duration, wave_count, board, notes, rating, conditions, user_id, garmin_activity_id)
   VALUES (@spot_id, @spot_name, @date, @start_time, @duration, @wave_count, @board, @notes, @rating, @conditions, @user_id, @garmin_activity_id)
+`)
+
+// --- Surf Alert prepared statements ---
+
+export const insertSurfAlert = db.prepare(`
+  INSERT INTO surf_alerts (user_id, spot_id, spot_name, min_wave_height, max_wind_speed, min_rating)
+  VALUES (@user_id, @spot_id, @spot_name, @min_wave_height, @max_wind_speed, @min_rating)
+`)
+
+export const getSurfAlertsByUser = db.prepare(`
+  SELECT * FROM surf_alerts WHERE user_id = ? ORDER BY created_at DESC
+`)
+
+export const deleteSurfAlert = db.prepare(`
+  DELETE FROM surf_alerts WHERE id = ? AND user_id = ?
+`)
+
+export const toggleSurfAlert = db.prepare(`
+  UPDATE surf_alerts SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END WHERE id = ? AND user_id = ?
+`)
+
+export const getActiveSurfAlerts = db.prepare(`
+  SELECT * FROM surf_alerts WHERE is_active = 1
+`)
+
+export const updateAlertTriggered = db.prepare(`
+  UPDATE surf_alerts SET last_triggered_at = datetime('now') WHERE id = ?
+`)
+
+export const insertSurfAlertNotification = db.prepare(`
+  INSERT INTO notifications (user_id, actor_id, type, session_id, comment_id, spot_id, alert_spot_name)
+  VALUES (?, ?, 'surf_alert', NULL, NULL, ?, ?)
 `)
 
 export default db
